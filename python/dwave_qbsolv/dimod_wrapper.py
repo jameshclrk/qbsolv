@@ -86,7 +86,7 @@ class QBSolv(dimod.core.sampler.Sampler):
 
         # pose the QUBO to qbsolv
         Q, offset = bqm.to_qubo()
-        samples, energies, counts = run_qbsolv(Q=Q, num_repeats=num_repeats, seed=seed, algorithm=algorithm,
+        samples, energies, counts, timing= run_qbsolv(Q=Q, num_repeats=num_repeats, seed=seed, algorithm=algorithm,
                                                verbosity=verbosity, timeout=timeout, solver_limit=solver_limit,
                                                solver=solver, target=target, find_max=find_max, sample_kwargs=sample_kwargs)
 
@@ -94,4 +94,4 @@ class QBSolv(dimod.core.sampler.Sampler):
         response = dimod.Response.from_dicts(samples, {'energy': energies, 'num_occurrences': counts}, dimod.BINARY)
         response.change_vartype(bqm.vartype, {'energy': [offset] * len(energies)})
 
-        return response
+        return response, timing

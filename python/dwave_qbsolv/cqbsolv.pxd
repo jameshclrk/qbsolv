@@ -17,7 +17,7 @@ cdef extern from "qbsolv.h":
     #   -the size of the sub-problem
     #   -a state vector: on input is the current best state
     #       and should be set to the output state
-    ctypedef void (*SubSolver)(double**, int, int8_t*, void*)
+    ctypedef void (*SubSolver)(double**, int, int8_t*, void*, timing_t*)
 
     cdef struct parameters_t:
         int32_t repeats
@@ -25,11 +25,16 @@ cdef extern from "qbsolv.h":
         int32_t sub_size
         void* sub_sampler_data
 
+    cdef struct timing_t:
+        int64_t qpu_access_time
+
     parameters_t default_parameters()
+
+    timing_t empty_timing()
 
     void solve(double **qubo, const int qubo_size, int8_t **solution_list,
                double *energy_list, int *solution_counts, int *Qindex, int QLEN,
-               parameters_t *param)
+               parameters_t *param, timing_t * timing)
 
     void dw_sub_sample(double**, int, int8_t*, void*)
 

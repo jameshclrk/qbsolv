@@ -520,7 +520,7 @@ double solv_submatrix(int8_t *solution, int8_t *best, uint qubo_size, double **q
 // @param[in,out] solution inputs a current solution and returns the projected solution
 // @param[out] stores the new, projected solution found during the algorithm
 int reduce_solve_projection(int *Icompress, double **qubo, int qubo_size, int subMatrix, int8_t *solution,
-                            parameters_t *param) {
+                            parameters_t *param, timing_t * timing) {
     int change = 0;
     int8_t *sub_solution = (int8_t *)malloc(sizeof(int8_t) * subMatrix);
     double **sub_qubo;
@@ -538,7 +538,7 @@ int reduce_solve_projection(int *Icompress, double **qubo, int qubo_size, int su
         sub_solution[i] = solution[Icompress[i]];
     }
 
-    param->sub_sampler(sub_qubo, subMatrix, sub_solution, param->sub_sampler_data);
+    param->sub_sampler(sub_qubo, subMatrix, sub_solution, param->sub_sampler_data, timing);
 
     // modification to write out subqubos
     // char subqubofile[sizeof "subqubo10000.qubo"];
@@ -570,7 +570,7 @@ void dw_sub_sample(double **sub_qubo, int subMatrix, int8_t *sub_solution, void 
     free(flip_cost);
 }
 
-void tabu_sub_sample(double **sub_qubo, int subMatrix, int8_t *sub_solution, void *sub_sampler_data) {
+void tabu_sub_sample(double **sub_qubo, int subMatrix, int8_t *sub_solution, void *sub_sampler_data, timing_t *timing) {
     int *TabuK;
     int *index;
     double *flip_cost = (double *)malloc(sizeof(double) * subMatrix);
@@ -603,6 +603,11 @@ parameters_t default_parameters() {
     return param;
 }
 
+timing_t empty_timing() {
+    timing_t timing;
+    timing.qpu_access_time = 0;
+    return timing;
+}
 // Entry into the overall solver from the main program
 //
 // It is the main function for solving a quadratic boolean optimization problem.
@@ -631,7 +636,7 @@ parameters_t default_parameters() {
 // @param QLEN Number of entries in the solution table
 // @param[in,out] param Other parameters to the solve method that have default values.
 void solve(double **qubo, const int qubo_size, int8_t **solution_list, double *energy_list, int *solution_counts,
-           int *Qindex, int QLEN, parameters_t *param) {
+           int *Qindex, int QLEN, parameters_t *param, timing_t * timing) {
     double *flip_cost, energy;
     int *TabuK, *index, start_;
     int8_t *solution, *tabu_solution;
@@ -818,7 +823,7 @@ void solve(double **qubo, const int qubo_size, int8_t **solution_list, double *e
                                 Icompress[j++] = Pcompress[i];  // create compression index
                             }
                         }
-                        t_change = reduce_solve_projection(Icompress, qubo, qubo_size, subMatrix, solution, param);
+                        t_change = reduce_solve_projection(Icompress, qubo, qubo_size, subMatrix, solution, param, timing);
                         // do the following in a critical region
 
                         change = change + t_change;

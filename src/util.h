@@ -24,6 +24,7 @@ extern "C" {
 
 // Forward declare parameter type
 typedef struct parameters_t parameters_t;
+typedef struct timing_t timing_t;
 
 enum                                // of codes for sol_rslt.code
 { NOTHING = 0,                      // nothing new, do nothing

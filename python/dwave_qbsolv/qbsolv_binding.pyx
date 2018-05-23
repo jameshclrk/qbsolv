@@ -6,8 +6,8 @@ import logging
 from libc.stdio cimport stdout
 from libc.stdlib cimport malloc, free, srand
 
-from dwave_qbsolv.cqbsolv cimport int8_t, int64_t, int32_t
-from dwave_qbsolv.cqbsolv cimport default_parameters, dw_init, dw_close, dw_sub_sample
+from dwave_qbsolv.cqbsolv cimport int8_t, int64_t, int32_t, timing_t
+from dwave_qbsolv.cqbsolv cimport empty_timing, default_parameters, dw_init, dw_close, dw_sub_sample
 from dwave_qbsolv.cqbsolv cimport Verbose_, algo_, outFile_, Time_, Tlist_, numsolOut_, WriteMatrix_, TargetSet_, Target_, findMax_
 from dwave_qbsolv.cqbsolv cimport solve, malloc2D
 
@@ -51,10 +51,6 @@ def run_qbsolv(Q, num_repeats=50, seed=17932241798878,  verbosity=-1,
     # Look for keywords identifying methods implemented in the qbsolv C library
     if solver == 'tabu' or solver is None:
         log.debug('Using built-in tabu sub-problem solver.')
-    elif solver == 'dw':
-        log.debug('Using built-in dw interface sub-problem solver.')
-        params.sub_sampler = &dw_sub_sample
-        params.sub_size = dw_init();
 
     # Try to identify a dimod solver
     elif hasattr(solver, 'sample_ising') and hasattr(solver, 'sample_qubo'):
@@ -63,10 +59,12 @@ def run_qbsolv(Q, num_repeats=50, seed=17932241798878,  verbosity=-1,
 
         def dimod_callback(Q, best_state):
             result = solver.sample_qubo(Q, **sample_kwargs)
+            timing_data = empty_timing()
+            timing_data.qpu_access_time = result.info['timing']['qpu_access_time']
             sample = next(result.samples())
             for key, value in sample.items():
                 best_state[key] = value
-            return best_state
+            return best_state,timing_data
 
         params.sub_sampler_data = <void*>dimod_callback
 
@@ -168,8 +166,9 @@ def run_qbsolv(Q, num_repeats=50, seed=17932241798878,  verbosity=-1,
         else:
             Q_array[u][v] = sign * bias
 
+    timing = empty_timing()
     # Ok, solve using qbsolv! This puts the answer into output_sample
-    solve(Q_array, n_variables, solution_list, energy_list, solution_counts, Qindex, n_solutions, &params)
+    solve(Q_array, n_variables, solution_list, energy_list, solution_counts, Qindex, n_solutions, &params, &timing)
 
     # we are interested in three things: the samples, the energies, and the
     # number of times each sample appeared
@@ -205,10 +204,10 @@ def run_qbsolv(Q, num_repeats=50, seed=17932241798878,  verbosity=-1,
     if solver == 'dw':
         dw_close();
 
-    return samples, energies, counts
+    return samples, energies, counts, timing
 
 
-cdef void solver_callback(double** Q_array, int n_variables, int8_t* best_solution, void *py_solver):
+cdef void solver_callback(double** Q_array, int n_variables, int8_t* best_solution, void *py_solver, timing_t* timing):
     log.debug('solver_callback invoked')
 
     # first we need Q_array to be a dict
@@ -240,7 +239,9 @@ cdef void solver_callback(double** Q_array, int n_variables, int8_t* best_soluti
         solution[v] = best_solution[v]
         v += 1
 
-    new_solution = (<object>py_solver)(Q, solution)
+    new_solution,new_timing = (<object>py_solver)(Q, solution)
+
+    timing[0].qpu_access_time += new_timing.get('qpu_access_time')
 
     # finally we write new_solution back into best_solution which is also how
     # we return the value

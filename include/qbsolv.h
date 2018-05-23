@@ -18,12 +18,16 @@
 extern "C" {
 #endif
 
+typedef struct timing_t {
+    int64_t qpu_access_time;
+} timing_t;
+
 // The pointer type for sub-solver.
 // Its arguments are:
 // - a 2d double array that is the sub-problem,
 // - the size of the sub problem
 // - a state vector: on input is the current best state, and should be set to the output state
-typedef void (*SubSolver)(double**, int, int8_t*, void*);
+typedef void (*SubSolver)(double**, int, int8_t*, void*, timing_t *);
 
 // A parameter structure used to pass in optional arguments to the qbsolv: solve method.
 typedef struct parameters_t {
@@ -39,16 +43,17 @@ typedef struct parameters_t {
 
 // Get the default values for the optional parameters structure
 parameters_t default_parameters(void);
+timing_t empty_timing(void);
 
 // Callback for `solve` to use one of the `dw` calling methods
 void dw_sub_sample(double** sub_qubo, int subMatrix, int8_t* sub_solution, void*);
 
 // Callback for `solve` to use tabu on subproblems
-void tabu_sub_sample(double** sub_qubo, int subMatrix, int8_t* sub_solution, void*);
+void tabu_sub_sample(double** sub_qubo, int subMatrix, int8_t* sub_solution, void*, timing_t * timing);
 
 // Entry into the overall solver from the main program
 void solve(double** qubo, const int qubo_size, int8_t** solution_list, double* energy_list, int* solution_counts,
-           int* Qindex, int QLEN, parameters_t* param);
+           int* Qindex, int QLEN, parameters_t* param, timing_t * timing);
 
 #ifdef __cplusplus
 }
